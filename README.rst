@@ -29,11 +29,11 @@ TODO
 Installation
 ============
 
-(1) Install latest version from Github:
+(1) Install latest version from Github (PyPy package will be available as soon as stable version is released):
 
     .. code-block:: sh
 
-        pip install https://github.com/GeorgeLubaretsi/django-cloud-tasks.git
+        pip install -e git+git@github.com:GeorgeLubaretsi/django-cloud-tasks.git#egg=django_cloud_tasks
 
 
 (2) Add ``django_cloud_tasks`` to ``INSTALLED_APPS``:
