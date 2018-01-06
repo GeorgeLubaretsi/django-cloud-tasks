@@ -1,0 +1,28 @@
+from django.apps import AppConfig
+from django.conf import settings
+
+from .connection import connection
+
+
+class DCTConfig(AppConfig):
+    name = 'django_cloud_tasks'
+    verbose_name = "Django Cloud Tasks"
+
+    def ready(self):
+        self.module.autodiscover()
+
+    @classmethod
+    def _settings(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS')
+
+    @classmethod
+    def default_queue(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_DEFAULT_QUEUE', 'push-default')
+
+    @classmethod
+    def project_location_name(cls):
+        return cls._settings().get('project_location_name')
+
+    @classmethod
+    def task_handler_root_url(cls):
+        return cls._settings().get('task_handler_root_url')
