@@ -5,7 +5,7 @@ Integrate `Google Cloud Tasks <https://goo.gl/Ya0AZd>`_ with Django.
 
 Package provides easy to use decorator to create task handlers.
 
-App looks for tasks in `cloud_tasks.py` files in your installed applications and auto-registers them.
+App looks for tasks in ``cloud_tasks.py`` files in your installed applications and auto-registers them.
 
 Package is in early alpha and it does not have any real security at the moment. You need to authorize requests coming
 to your instances yourself.
@@ -57,7 +57,7 @@ Installation
         },
 
 
-(4) Add cloud task views to your urls.py (must resolve to the same url as `task_handler_root_url`)
+(4) Add cloud task views to your urls.py (must resolve to the same url as ``task_handler_root_url``)
 
     .. code-block:: python
 
@@ -76,7 +76,7 @@ Installation
 Quick start
 ===========
 
-Simply import the task decorator and define the task inside `cloud_tasks.py` in your app.
+Simply import the task decorator and define the task inside ``cloud_tasks.py`` in your app.
 
 .. code-block:: python
 
@@ -112,3 +112,14 @@ You can also send tasks in batch if latency is an issue and you have to send man
         tasks.append(task)
 
     batch_execute(tasks)
+
+
+
+It is also possible to run an actual function using ``run`` method of ``CloudTaskWrapper`` object instance that is returned after task is called (this can be useful for debugging):
+
+.. code-block:: python
+
+    task = example_task(p1=i, p2=i)
+    task.run()
+
+
