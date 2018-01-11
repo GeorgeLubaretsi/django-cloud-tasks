@@ -40,7 +40,7 @@ class CloudTaskWrapper(object):
         self._base_task = base_task
         self._data = data
         self._queue = queue
-        self.client = None
+        self._connection = None
         self.setup()
 
     def setup(self):
@@ -48,7 +48,7 @@ class CloudTaskWrapper(object):
             con = connection.configure(**settings.DJANGO_CLOUD_TASKS)
         else:
             con = connection
-        self.client = con.client
+        self._connection = con
 
     def execute(self):
         """
@@ -64,9 +64,6 @@ class CloudTaskWrapper(object):
 
     def set_queue(self, queue):
         self._queue = queue
-
-    def _tasks_endpoint(self):
-        return self.client.projects().locations().queues().tasks()
 
     @property
     def _cloud_task_queue_name(self):
@@ -93,7 +90,7 @@ class CloudTaskWrapper(object):
 
         body['task']['appEngineHttpRequest']['payload'] = converted_payload
 
-        task = self._tasks_endpoint().create(parent=self._cloud_task_queue_name, body=body)
+        task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=body)
 
         return task
 
