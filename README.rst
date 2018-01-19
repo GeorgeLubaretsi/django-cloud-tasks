@@ -77,6 +77,10 @@ Quick start
 ===========
 
 Simply import the task decorator and define the task inside ``cloud_tasks.py`` in your app.
+First parameter should always be ``request`` which is populated after task is executed by Cloud Task service.
+
+You can get actual request coming from Cloud Task service by accessing ``request.request`` in your task body and
+additional attributes such as: ``request.task_id```, ```request.request_headers```
 
 .. code-block:: python
 
@@ -85,8 +89,9 @@ Simply import the task decorator and define the task inside ``cloud_tasks.py`` i
     from django_cloud_tasks.decorators import task
 
     @task(queue='default')
-    def example_task(p1, p2):
+    def example_task(request, p1, p2):
         print(p1, p2)
+        print(request.task_id)
 
 
 Pushing the task to the queue:

@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 import time
+import uuid
 
 from django.conf import settings
 
@@ -70,6 +71,37 @@ class BaseTask(object):
     pass
 
 
+class CloudTaskMockRequest(object):
+    def __init__(self, request=None, task_id=None, request_headers=None):
+        self.request = request
+        self.task_id = task_id
+        self.request_headers = request_headers
+        self.setup()
+
+    def setup(self):
+        if not self.task_id:
+            self.task_id = uuid.uuid4().hex
+        if not self.request_headers:
+            self.request_headers = dict()
+
+
+class CloudTaskRequest(object):
+    def __init__(self, request, task_id, request_headers):
+        self.request = request
+        self.task_id = task_id
+        self.request_headers = request_headers
+
+    @classmethod
+    def from_cloud_request(cls, request):
+        request_headers = request.META
+        task_id = request_headers.get('HTTP_X_APPENGINE_TASKNAME')
+        return cls(
+            request=request,
+            task_id=task_id,
+            request_headers=request_headers
+        )
+
+
 class CloudTaskWrapper(object):
     def __init__(self, base_task, queue, data):
         self._base_task = base_task
@@ -96,11 +128,15 @@ class CloudTaskWrapper(object):
         else:
             return retry(retry_limit=retry_limit, retry_interval=retry_interval)(self.create_cloud_task().execute)()
 
-    def run(self):
+    def run(self, mock_request=None):
         """
-        Runs actual task function
+        Runs actual task function. Used for local execution of the task handler
+        :param mock_request: Task instances accept request argument that holds various attributes of the request
+        coming from Cloud Tasks service. You can pass a mock request here that emulates that request. If not provided,
+        default mock request is created from `CloudTaskMockRequest`
         """
-        return self._base_task.run(**self._data) if self._data else self._base_task.run()
+        request = mock_request or CloudTaskMockRequest()
+        return self._base_task.run(request=request, **self._data) if self._data else self._base_task.run(request=request)
 
     def set_queue(self, queue):
         self._queue = queue
