@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 def run_task(request):
     body = json.loads(request.body.decode('utf-8'))
     request_headers = request.META
+    task_name = request_headers.get('HTTP_X_APPENGINE_TASKNAME')
+    task_queue_name = request_headers.get('HTTP_X_APPENGINE_QUEUENAME')
     try:
         internal_task_name = body['internal_task_name']
         data = body.get('data', dict())
@@ -22,6 +24,8 @@ def run_task(request):
         message = 'Task execution failed'
         logger.exception(
             message, extra={
+                'taskName': task_name,
+                'taskQueueName': task_queue_name,
                 'taskPayload': body,
                 'taskRequestHeaders': dict(request_headers)
             }
