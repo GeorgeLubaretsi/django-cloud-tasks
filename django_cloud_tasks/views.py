@@ -20,10 +20,9 @@ def run_task(request):
         func = registry.get_task(internal_task_name)
         cloud_request = CloudTaskRequest.from_cloud_request(request)
         func.run(request=cloud_request, **data) if data else func.run(request=cloud_request)
-    except:
-        message = 'Task execution failed'
+    except Exception as e:
         logger.exception(
-            message, extra={
+            e, extra={
                 'taskName': task_name,
                 'taskQueueName': task_queue_name,
                 'taskPayload': body,
