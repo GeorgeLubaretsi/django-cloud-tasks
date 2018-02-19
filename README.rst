@@ -103,6 +103,25 @@ Pushing the task to the queue:
     example_task(p1='1', p2='2').execute()
 
 
+Pushing remote task to the queue (when task handler is defined elsewhere):
+
+.. code-block:: python
+
+    from django_cloud_tasks.base import remote_task
+    from django_cloud_tasks.base import batch_execute
+
+    example_task = remote_task(queue='my-queue', handler='remote_app.cloud_tasks.example_task'):
+    payload_1 = example_task.payload(payload={'p1': 1, 'p2': '2'})
+    payload_2 = example_task.payload(payload={'p1': 2, 'p2': '3'})
+
+    # Execute in batch:
+    batch_execute([payload_1, payload_2])
+
+    # Or one by one:
+    payload_1.execute()
+    payload_2.execute()
+
+
 You can also send tasks in batch if latency is an issue and you have to send many small tasks to the queue
 (limited to 1000 at a time):
 

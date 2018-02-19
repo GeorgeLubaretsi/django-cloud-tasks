@@ -103,11 +103,13 @@ class CloudTaskRequest(object):
 
 
 class CloudTaskWrapper(object):
-    def __init__(self, base_task, queue, data):
+    def __init__(self, base_task, queue, data, internal_task_name=None, task_handler_url=None):
         self._base_task = base_task
         self._data = data
         self._queue = queue
         self._connection = None
+        self._internal_task_name = internal_task_name or self._base_task.internal_task_name
+        self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
         self.setup()
 
     def setup(self):
@@ -116,6 +118,10 @@ class CloudTaskWrapper(object):
         else:
             con = connection
         self._connection = con
+        if not self._internal_task_name:
+            raise ValueError('Either `internal_task_name` or `base_task` should be provided')
+        if not self._task_handler_url:
+            raise ValueError('Could not identify task handler URL of the worker service')
 
     def execute(self, retry_limit=10, retry_interval=5):
         """
@@ -150,13 +156,13 @@ class CloudTaskWrapper(object):
             'task': {
                 'appEngineHttpRequest': {
                     'httpMethod': 'POST',
-                    'relativeUrl': DCTConfig.task_handler_root_url()
+                    'relativeUrl': self._task_handler_url
                 }
             }
         }
 
         payload = {
-            'internal_task_name': self._base_task.internal_task_name,
+            'internal_task_name': self._internal_task_name,
             'data': self._data
         }
         payload = json.dumps(payload)
@@ -169,3 +175,33 @@ class CloudTaskWrapper(object):
         task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=body)
 
         return task
+
+
+class RemoteCloudTask(object):
+    def __init__(self, queue, handler, task_handler_url=None):
+        self.queue = queue
+        self.handler = handler
+        self.task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
+
+    def payload(self, payload):
+        """
+        Set payload and return task instance
+        :param payload: Dict Payload
+        :return: `CloudTaskWrapper` instance
+        """
+        task = CloudTaskWrapper(base_task=None, queue=self.queue, internal_task_name=self.handler,
+                                task_handler_url=self.task_handler_url,
+                                data=payload)
+        return task
+
+
+def remote_task(queue, handler, task_handler_url=None):
+    """
+    Returns `RemoteCloudTask` instance. Can be used for scheduling tasks that are not available in the current scope
+    :param queue: Queue name
+    :param handler: Task handler function name
+    :param task_handler_url: Entry point URL of the worker service for the task
+    :return: `CloudTaskWrapper` instance
+    """
+    task = RemoteCloudTask(queue=queue, handler=handler, task_handler_url=task_handler_url)
+    return task
