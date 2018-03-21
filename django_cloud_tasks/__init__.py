@@ -1,4 +1,6 @@
 from django.utils.module_loading import autodiscover_modules
+from .base import batch_execute, remote_task  # noqa
+from .decorators import task
 
 __version__ = '0.0.1'
 
