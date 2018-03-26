@@ -3,13 +3,19 @@ import json
 import logging
 import time
 import uuid
-
-from django.conf import settings
+from uuid import UUID
 
 from .apps import DCTConfig
 from .connection import connection
 
 logger = logging.getLogger(__name__)
+
+
+class ComplexEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return obj.hex
+        return json.JSONEncoder.default(self, obj)
 
 
 def retry(retry_limit, retry_interval):
@@ -161,7 +167,7 @@ class CloudTaskWrapper(object):
             'internal_task_name': self._internal_task_name,
             'data': self._data
         }
-        payload = json.dumps(payload)
+        payload = json.dumps(payload, cls=ComplexEncoder)
 
         base64_encoded_payload = base64.b64encode(payload.encode())
         converted_payload = base64_encoded_payload.decode()
