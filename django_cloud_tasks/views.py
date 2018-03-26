@@ -14,6 +14,13 @@ def run_task(request):
     request_headers = request.META
     task_name = request_headers.get('HTTP_X_APPENGINE_TASKNAME')
     task_queue_name = request_headers.get('HTTP_X_APPENGINE_QUEUENAME')
+
+    logger_extra = {
+        'taskName': task_name,
+        'taskQueueName': task_queue_name,
+        'taskPayload': body,
+        'taskRequestHeaders': dict(request_headers)
+    }
     try:
         internal_task_name = body['internal_task_name']
         data = body.get('data', dict())
@@ -22,14 +29,9 @@ def run_task(request):
         func.run(request=cloud_request, **data) if data else func.run(request=cloud_request)
     except Exception as e:
         logger.exception(
-            e, extra={
-                'taskName': task_name,
-                'taskQueueName': task_queue_name,
-                'taskPayload': body,
-                'taskRequestHeaders': dict(request_headers)
-            }
+            e, extra=logger_extra
         )
         return JsonResponse({'status': 'error'}, status=500)
 
-    logger.info('Task executed successfully')
+    logger.info('Task executed successfully', extra=logger_extra)
     return JsonResponse({'status': 'ok', 'message': 'ok'}, status=200)
