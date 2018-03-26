@@ -113,11 +113,7 @@ class CloudTaskWrapper(object):
         self.setup()
 
     def setup(self):
-        if not connection.client:
-            con = connection.configure(**settings.DJANGO_CLOUD_TASKS)
-        else:
-            con = connection
-        self._connection = con
+        self._connection = connection
         if not self._internal_task_name:
             raise ValueError('Either `internal_task_name` or `base_task` should be provided')
         if not self._task_handler_url:
