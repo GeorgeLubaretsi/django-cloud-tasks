@@ -26,3 +26,11 @@ class DCTConfig(AppConfig):
     @classmethod
     def task_handler_root_url(cls):
         return cls._settings().get('task_handler_root_url')
+
+    @classmethod
+    def execute_locally(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_EXECUTE_LOCALLY', False)
+
+    @classmethod
+    def block_remote_tasks(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_BLOCK_REMOTE_TASKS', False)

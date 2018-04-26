@@ -109,13 +109,15 @@ class CloudTaskRequest(object):
 
 
 class CloudTaskWrapper(object):
-    def __init__(self, base_task, queue, data, internal_task_name=None, task_handler_url=None):
+    def __init__(self, base_task, queue, data, internal_task_name=None, task_handler_url=None,
+                 is_remote=False):
         self._base_task = base_task
         self._data = data
         self._queue = queue
         self._connection = None
         self._internal_task_name = internal_task_name or self._base_task.internal_task_name
         self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
+        self._is_remote = is_remote
         self.setup()
 
     def setup(self):
@@ -131,6 +133,15 @@ class CloudTaskWrapper(object):
         :param retry_limit: How many times task scheduling will be attempted
         :param retry_interval: Interval between task scheduling attempts in seconds
         """
+        if DCTConfig.execute_locally() and not self._is_remote:
+            return self.run()
+
+        if self._is_remote and DCTConfig.block_remote_tasks():
+            logger.debug(
+                'Remote task {0} was ignored. Task data:\n {1}'.format(self._internal_task_name, self._data)
+            )
+            return None
+
         if not retry_limit:
             return self.create_cloud_task().execute()
         else:
@@ -193,7 +204,7 @@ class RemoteCloudTask(object):
         """
         task = CloudTaskWrapper(base_task=None, queue=self.queue, internal_task_name=self.handler,
                                 task_handler_url=self.task_handler_url,
-                                data=payload)
+                                data=payload, is_remote=True)
         return task
 
 
