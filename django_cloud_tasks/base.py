@@ -65,7 +65,15 @@ def batch_execute(tasks, retry_limit=30, retry_interval=3):
     client = connection.client
     batch = client.new_batch_http_request()
     for t in tasks:
-        batch.add(t.create_cloud_task(), callback=batch_callback_logger)
+        if DCTConfig.execute_locally() and not t._is_remote:
+            return t.run()
+        elif t._is_remote and DCTConfig.block_remote_tasks():
+            logger.debug(
+                'Remote task {0} was ignored. Task data:\n {1}'.format(t._internal_task_name, t._data)
+            )
+            continue
+        else:
+            batch.add(t.create_cloud_task(), callback=batch_callback_logger)
 
     if not retry_limit:
         return batch.execute()
