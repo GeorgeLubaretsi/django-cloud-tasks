@@ -110,18 +110,21 @@ def batch_execute(tasks, retry_limit=30, retry_interval=3):
     """
     if len(tasks) >= 1000:
         raise Exception('Maximum number of tasks in batch cannot exceed 1000')
+
+    if DCTConfig.execute_locally():
+        for t in tasks:
+            if not t._is_remote:
+                t.run()
+            elif t._is_remote and DCTConfig.block_remote_tasks():
+                logger.debug(
+                    'Remote task {0} was ignored. Task data:\n {1}'.format(t._internal_task_name, t._data)
+                )
+        return
+
     client = connection.client
     batch = client.new_batch_http_request()
     for t in tasks:
-        if DCTConfig.execute_locally() and not t._is_remote:
-            return t.run()
-        elif t._is_remote and DCTConfig.block_remote_tasks():
-            logger.debug(
-                'Remote task {0} was ignored. Task data:\n {1}'.format(t._internal_task_name, t._data)
-            )
-            continue
-        else:
-            batch.add(t.create_cloud_task(), callback=batch_callback_logger)
+        batch.add(t.create_cloud_task(), callback=batch_callback_logger)
 
     if not retry_limit:
         return batch.execute()
