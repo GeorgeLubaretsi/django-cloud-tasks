@@ -4,6 +4,9 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from .registries import registry
 from .base import CloudTaskRequest
+from .constants import DJANGO_HANDLER_SECRET_HEADER_NAME
+from .apps import DCTConfig
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +18,9 @@ def run_task(request):
     task_name = request_headers.get('HTTP_X_APPENGINE_TASKNAME')
     task_queue_name = request_headers.get('HTTP_X_APPENGINE_QUEUENAME')
 
+    # Pop handler key so that it won't show up in logs
+    handler_key = request_headers.pop(DJANGO_HANDLER_SECRET_HEADER_NAME, None)
+
     logger_extra = {
         'taskName': task_name,
         'taskQueueName': task_queue_name,
@@ -22,6 +28,9 @@ def run_task(request):
         'taskRequestHeaders': dict(request_headers)
     }
     try:
+        if not handler_key == DCTConfig.handler_secret():
+            raise ValueError('API key mismatch')
+
         internal_task_name = body['internal_task_name']
         data = body.get('data', dict())
         func = registry.get_task(internal_task_name)

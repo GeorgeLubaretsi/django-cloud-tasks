@@ -23,14 +23,14 @@ def create_task(task_class, func, **kwargs):
     return type(func.__name__, (task_class,), attrs)()
 
 
-def task(queue):
+def task(queue, **headers):
     def decorator(func):
         task_cls = create_task(BaseTask, func)
         registry.register(task_cls)
 
         @wraps(func)
         def inner_run(**kwargs):
-            return CloudTaskWrapper(task_cls, queue, kwargs)
+            return CloudTaskWrapper(task_cls, queue, kwargs, headers=headers)
 
         return inner_run
 

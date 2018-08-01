@@ -6,6 +6,9 @@ import time
 import uuid
 import datetime
 
+from django.test import RequestFactory
+
+from .constants import DJANGO_HANDLER_SECRET_HEADER_NAME, HANDLER_SECRET_HEADER_NAME
 from .apps import DCTConfig
 from .connection import connection
 
@@ -114,7 +117,7 @@ def batch_execute(tasks, retry_limit=30, retry_interval=3):
     if DCTConfig.execute_locally():
         for t in tasks:
             if not t._is_remote:
-                t.run()
+                t.execute_local()
             elif t._is_remote and DCTConfig.block_remote_tasks():
                 logger.debug(
                     'Remote task {0} was ignored. Task data:\n {1}'.format(t._internal_task_name, t._data)
@@ -153,6 +156,36 @@ class CloudTaskMockRequest(object):
             self.request_headers = dict()
 
 
+class EmulatedTask(object):
+    def __init__(self, body):
+        self.body = body
+        self.setup()
+
+    def setup(self):
+        payload = self.body['task']['appEngineHttpRequest']['payload']
+        decoded = json.loads(base64.b64decode(payload))
+        self.body['task']['appEngineHttpRequest']['payload'] = decoded
+
+    def get_json_body(self):
+        body = self.body['task']['appEngineHttpRequest']['payload']
+        return json.dumps(body)
+
+    @property
+    def request_headers(self):
+        return {
+            'HTTP_X_APPENGINE_TASKNAME': uuid.uuid4().hex,
+            'HTTP_X_APPENGINE_QUEUENAME': 'emulated',
+            DJANGO_HANDLER_SECRET_HEADER_NAME: DCTConfig.handler_secret()
+        }
+
+    def execute(self):
+        from .views import run_task
+        request = RequestFactory().post('/_tasks/', data=self.get_json_body(),
+                                        content_type='application/json',
+                                        **self.request_headers)
+        return run_task(request=request)
+
+
 class CloudTaskRequest(object):
     def __init__(self, request, task_id, request_headers):
         self.request = request
@@ -171,15 +204,18 @@ class CloudTaskRequest(object):
 
 
 class CloudTaskWrapper(object):
-    def __init__(self, base_task, queue, data, internal_task_name=None, task_handler_url=None,
-                 is_remote=False):
+    def __init__(self, base_task, queue, data,
+                 internal_task_name=None, task_handler_url=None,
+                 is_remote=False, headers=None):
         self._base_task = base_task
         self._data = data
         self._queue = queue
         self._connection = None
         self._internal_task_name = internal_task_name or self._base_task.internal_task_name
         self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
+        self._handler_secret = DCTConfig.handler_secret()
         self._is_remote = is_remote
+        self._headers = headers or {}
         self.setup()
 
     def setup(self):
@@ -189,6 +225,9 @@ class CloudTaskWrapper(object):
         if not self._task_handler_url:
             raise ValueError('Could not identify task handler URL of the worker service')
 
+    def execute_local(self):
+        return EmulatedTask(body=self.get_body()).execute()
+
     def execute(self, retry_limit=10, retry_interval=5):
         """
         Enqueue cloud task and send for execution
@@ -196,7 +235,7 @@ class CloudTaskWrapper(object):
         :param retry_interval: Interval between task scheduling attempts in seconds
         """
         if DCTConfig.execute_locally() and not self._is_remote:
-            return self.run()
+            return self.execute_local()
 
         if self._is_remote and DCTConfig.block_remote_tasks():
             logger.debug(
@@ -226,12 +265,23 @@ class CloudTaskWrapper(object):
     def _cloud_task_queue_name(self):
         return '{}/queues/{}'.format(DCTConfig.project_location_name(), self._queue)
 
-    def create_cloud_task(self):
+    @property
+    def formatted_headers(self):
+        formatted = {}
+        for key, value in self._headers.items():
+            _key = key.replace('_', '-').upper()
+            formatted[_key] = value
+        # add secret key
+        formatted[HANDLER_SECRET_HEADER_NAME] = self._handler_secret
+        return formatted
+
+    def get_body(self):
         body = {
             'task': {
                 'appEngineHttpRequest': {
                     'httpMethod': 'POST',
-                    'relativeUrl': self._task_handler_url
+                    'relativeUrl': self._task_handler_url,
+                    'headers': self.formatted_headers
                 }
             }
         }
@@ -246,17 +296,19 @@ class CloudTaskWrapper(object):
         converted_payload = base64_encoded_payload.decode()
 
         body['task']['appEngineHttpRequest']['payload'] = converted_payload
+        return body
 
-        task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=body)
-
+    def create_cloud_task(self):
+        task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=self.get_body())
         return task
 
 
 class RemoteCloudTask(object):
-    def __init__(self, queue, handler, task_handler_url=None):
+    def __init__(self, queue, handler, task_handler_url=None, headers=None):
         self.queue = queue
         self.handler = handler
         self.task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
+        self.headers = headers
 
     def payload(self, payload):
         """
@@ -266,17 +318,18 @@ class RemoteCloudTask(object):
         """
         task = CloudTaskWrapper(base_task=None, queue=self.queue, internal_task_name=self.handler,
                                 task_handler_url=self.task_handler_url,
-                                data=payload, is_remote=True)
+                                data=payload, is_remote=True, headers=self.headers)
         return task
 
 
-def remote_task(queue, handler, task_handler_url=None):
+def remote_task(queue, handler, task_handler_url=None, **headers):
     """
     Returns `RemoteCloudTask` instance. Can be used for scheduling tasks that are not available in the current scope
     :param queue: Queue name
     :param handler: Task handler function name
     :param task_handler_url: Entry point URL of the worker service for the task
+    :param headers: Headers that will be sent to the task handler
     :return: `CloudTaskWrapper` instance
     """
-    task = RemoteCloudTask(queue=queue, handler=handler, task_handler_url=task_handler_url)
+    task = RemoteCloudTask(queue=queue, handler=handler, task_handler_url=task_handler_url, headers=headers)
     return task

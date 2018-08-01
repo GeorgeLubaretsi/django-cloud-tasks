@@ -34,3 +34,7 @@ class DCTConfig(AppConfig):
     @classmethod
     def block_remote_tasks(cls):
         return getattr(settings, 'DJANGO_CLOUD_TASKS_BLOCK_REMOTE_TASKS', False)
+
+    @classmethod
+    def handler_secret(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_HANDLER_SECRET', None)
