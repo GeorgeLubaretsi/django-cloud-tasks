@@ -321,6 +321,9 @@ class RemoteCloudTask(object):
                                 data=payload, is_remote=True, headers=self.headers)
         return task
 
+    def __call__(self, *args, **kwargs):
+        return self.payload(payload=kwargs)
+
 
 def remote_task(queue, handler, task_handler_url=None, **headers):
     """
