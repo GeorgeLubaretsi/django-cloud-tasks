@@ -291,7 +291,9 @@ class CloudTaskWrapper(object):
             'data': self._data
         }
         payload = json.dumps(payload, cls=ComplexEncoder)
-
+        logger.debug('Creating task with body {0}'.format(payload),
+                    extra={'taskPayload': payload
+                           })
         base64_encoded_payload = base64.b64encode(payload.encode())
         converted_payload = base64_encoded_payload.decode()
 
@@ -301,7 +303,6 @@ class CloudTaskWrapper(object):
     def create_cloud_task(self):
         task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=self.get_body())
         return task
-
 
 class RemoteCloudTask(object):
     def __init__(self, queue, handler, task_handler_url=None, headers=None):
