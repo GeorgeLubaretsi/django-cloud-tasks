@@ -162,12 +162,12 @@ class EmulatedTask(object):
         self.setup()
 
     def setup(self):
-        payload = self.body['task']['appEngineHttpRequest']['payload']
+        payload = self.body['task']['appEngineHttpRequest']['body']
         decoded = json.loads(base64.b64decode(payload))
-        self.body['task']['appEngineHttpRequest']['payload'] = decoded
+        self.body['task']['appEngineHttpRequest']['body'] = decoded
 
     def get_json_body(self):
-        body = self.body['task']['appEngineHttpRequest']['payload']
+        body = self.body['task']['appEngineHttpRequest']['body']
         return json.dumps(body)
 
     @property
@@ -280,7 +280,7 @@ class CloudTaskWrapper(object):
             'task': {
                 'appEngineHttpRequest': {
                     'httpMethod': 'POST',
-                    'relativeUrl': self._task_handler_url,
+                    'relativeUri': self._task_handler_url,
                     'headers': self.formatted_headers
                 }
             }
@@ -292,12 +292,12 @@ class CloudTaskWrapper(object):
         }
         payload = json.dumps(payload, cls=ComplexEncoder)
         logger.debug('Creating task with body {0}'.format(payload),
-                    extra={'taskPayload': payload
+                    extra={'taskBody': payload
                            })
         base64_encoded_payload = base64.b64encode(payload.encode())
         converted_payload = base64_encoded_payload.decode()
 
-        body['task']['appEngineHttpRequest']['payload'] = converted_payload
+        body['task']['appEngineHttpRequest']['body'] = converted_payload
         return body
 
     def create_cloud_task(self):

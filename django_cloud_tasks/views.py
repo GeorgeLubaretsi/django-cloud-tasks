@@ -24,7 +24,7 @@ def run_task(request):
     logger_extra = {
         'taskName': task_name,
         'taskQueueName': task_queue_name,
-        'taskPayload': body,
+        'taskBody': body,
         'taskRequestHeaders': dict(request_headers)
     }
     try:

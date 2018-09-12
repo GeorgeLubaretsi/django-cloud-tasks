@@ -17,7 +17,7 @@ class cached_property(object):
 class GoogleCloudClient(object):
     @cached_property
     def client(self):
-        client = googleapiclient.discovery.build('cloudtasks', 'v2beta2')
+        client = googleapiclient.discovery.build('cloudtasks', 'v2beta3')
         return client
 
     @cached_property
