@@ -83,8 +83,7 @@ def retry(retry_limit, retry_interval):
                     return f()
                 except Exception as e:
                     error = e
-                    msg = 'Task scheduling failed. Reason: {0}. Retrying...'.format(str(e))
-                    logger.warning(msg)
+                    logger.exception('Task scheduling failed. Retrying...')
                     time.sleep(retry_interval)
                     attempts_left -= 1
 
@@ -104,7 +103,7 @@ def batch_callback_logger(id, message, exception):
         raise Exception(decoded['error']['message'])
 
 
-def batch_execute(tasks, retry_limit=30, retry_interval=3):
+def batch_execute(tasks, retry_limit=10, retry_interval=3):
     """
     Executes tasks in batch
     :param tasks: list of CloudTaskWrapper objects
