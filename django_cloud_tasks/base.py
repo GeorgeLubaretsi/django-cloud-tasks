@@ -204,7 +204,7 @@ class CloudTaskRequest(object):
 
 class CloudTaskWrapper(object):
     def __init__(self, base_task, queue, data,
-                 internal_task_name=None, task_handler_url=None,
+                 internal_task_name=None, task_handler_url=None, app_engine_routing=None,
                  is_remote=False, headers=None):
         self._base_task = base_task
         self._data = data
@@ -212,6 +212,7 @@ class CloudTaskWrapper(object):
         self._connection = None
         self._internal_task_name = internal_task_name or self._base_task.internal_task_name
         self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
+        self._app_engine_routing = app_engine_routing or DCTConfig.app_engine_routing()
         self._handler_secret = DCTConfig.handler_secret()
         self._is_remote = is_remote
         self._headers = headers or {}
@@ -280,7 +281,8 @@ class CloudTaskWrapper(object):
                 'appEngineHttpRequest': {
                     'httpMethod': 'POST',
                     'relativeUri': self._task_handler_url,
-                    'headers': self.formatted_headers
+                    'headers': self.formatted_headers,
+                    'appEngineRouting': self._app_engine_routing
                 }
             }
         }

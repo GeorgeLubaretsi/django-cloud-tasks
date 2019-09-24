@@ -26,6 +26,10 @@ class DCTConfig(AppConfig):
     @classmethod
     def task_handler_root_url(cls):
         return cls._settings().get('task_handler_root_url')
+    
+    @classmethod
+    def app_engine_routing(cls):
+        return cls._settings().get('app_engine_routing', None)
 
     @classmethod
     def execute_locally(cls):
