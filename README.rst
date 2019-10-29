@@ -54,7 +54,7 @@ Installation
         DJANGO_CLOUD_TASKS={
             'project_location_name': 'projects/{project_name}/locations/us-central1',
             'task_handler_root_url': '/_tasks/',
-        },
+        }
 
         # This setting allows you to debug your cloud tasks by running actual task handler function locally
         # instead of sending them to the task queue. Default: False
