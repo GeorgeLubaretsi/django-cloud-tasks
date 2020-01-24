@@ -1,24 +1,35 @@
 import googleapiclient.discovery
-from cachetools import Cache
+import os.path
+import hashlib
+import tempfile
 
 from .apps import DCTConfig
 
 
-class MemoryCache(Cache):
+class DiscoveryCache:
     """
-    In-memory cache for use with API Discovery service.
+    Unix file-based cache for use with the API Discovery service
 
-    Fixes https://github.com/googleapis/google-api-python-client/issues/325
-
-    Solution is from https://github.com/googleapis/google-api-python-client/issues/325#issuecomment-274349841
+    See https://github.com/googleapis/google-api-python-client/issues/325#issuecomment-419387788
     """
-    _CACHE = {}
+    def filename(self, url):
+        return os.path.join(
+            tempfile.gettempdir(),
+            'google_api_discovery_' + hashlib.md5(url.encode()).hexdigest())
 
     def get(self, url):
-        return MemoryCache._CACHE.get(url)
+        try:
+            with open(self.filename(url), 'rb') as f:
+                return f.read().decode()
+        except FileNotFoundError:
+            return None
 
     def set(self, url, content):
-        MemoryCache._CACHE[url] = content
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(content.encode())
+            f.flush()
+            os.fsync(f)
+        os.rename(f.name, self.filename(url))
 
 
 class cached_property(object):
@@ -39,7 +50,7 @@ class GoogleCloudClient(object):
     def client(self):
         client = googleapiclient.discovery.build('cloudtasks', 'v2beta3',
                 credentials=DCTConfig.google_cloud_credentials(), 
-                cache=MemoryCache())
+                cache=DiscoveryCache())
         return client
 
     @cached_property
