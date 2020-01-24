@@ -1,5 +1,7 @@
 import googleapiclient.discovery
 
+from .apps import DCTConfig
+
 
 class cached_property(object):
     def __init__(self, fget):
@@ -17,7 +19,8 @@ class cached_property(object):
 class GoogleCloudClient(object):
     @cached_property
     def client(self):
-        client = googleapiclient.discovery.build('cloudtasks', 'v2beta3')
+        client = googleapiclient.discovery.build('cloudtasks', 'v2beta3',
+                credentials=DCTConfig.google_cloud_credentials())
         return client
 
     @cached_property

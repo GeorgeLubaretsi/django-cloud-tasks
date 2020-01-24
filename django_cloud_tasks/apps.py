@@ -1,8 +1,6 @@
 from django.apps import AppConfig
 from django.conf import settings
 
-from .connection import connection
-
 
 class DCTConfig(AppConfig):
     name = 'django_cloud_tasks'
@@ -38,3 +36,7 @@ class DCTConfig(AppConfig):
     @classmethod
     def handler_secret(cls):
         return getattr(settings, 'DJANGO_CLOUD_TASKS_HANDLER_SECRET', None)
+
+    @classmethod
+    def google_cloud_credentials(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_CREDENTIALS', None)
