@@ -40,6 +40,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'google-api-python-client>=1.6.4',
+        'cachetools>=4.0.0',
     ],
     license="MIT",
     zip_safe=False,

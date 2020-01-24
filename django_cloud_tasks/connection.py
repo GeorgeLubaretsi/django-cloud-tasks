@@ -1,6 +1,24 @@
 import googleapiclient.discovery
+from cachetools import Cache
 
 from .apps import DCTConfig
+
+
+class MemoryCache(Cache):
+    """
+    In-memory cache for use with API Discovery service.
+
+    Fixes https://github.com/googleapis/google-api-python-client/issues/325
+
+    Solution is from https://github.com/googleapis/google-api-python-client/issues/325#issuecomment-274349841
+    """
+    _CACHE = {}
+
+    def get(self, url):
+        return MemoryCache._CACHE.get(url)
+
+    def set(self, url, content):
+        MemoryCache._CACHE[url] = content
 
 
 class cached_property(object):
@@ -20,7 +38,8 @@ class GoogleCloudClient(object):
     @cached_property
     def client(self):
         client = googleapiclient.discovery.build('cloudtasks', 'v2beta3',
-                credentials=DCTConfig.google_cloud_credentials())
+                credentials=DCTConfig.google_cloud_credentials(), 
+                cache=MemoryCache())
         return client
 
     @cached_property
