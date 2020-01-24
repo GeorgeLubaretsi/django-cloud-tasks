@@ -47,7 +47,25 @@ Installation
         )
 
 
-(3) Add configuration to your settings
+(3) Optionally, set up Google Cloud credentials in your settings.py for use with Django Cloud Tasks. If you are using a service account, make sure the account has the "Cloud Tasks Admin" permission.
+
+    .. code-block:: python
+
+        # install these if they are not already installed
+        import google.auth
+        from google.oauth2 import service_account
+
+        # ...
+
+        # To use application default credentials:
+        google_cloud_credentials, project = google.auth.default()
+
+        # To use a service account JSON file:
+        google_cloud_credentials = service_account.Credentials.from_service_account_file(
+                '/path/to/key.json')
+
+
+(4) Add configuration to your settings
 
     .. code-block:: python
 
@@ -64,8 +82,13 @@ Installation
         # the queue. Useful for debugging. Default: True
         DJANGO_CLOUD_TASKS_BLOCK_REMOTE_TASKS = False
 
+        # Optional argument. Specify a google.auth.credentials.Credentials object to use with the API 
+        # Discovery service. Can be application default credentials or credentials generated from a 
+        # service account JSON file. Default: None
+        DJANGO_CLOUD_TASKS_CREDENTIALS = None # or google_cloud_credentials if you defined this above
 
-(4) Add cloud task views to your urls.py (must resolve to the same url as ``task_handler_root_url``)
+
+(5) Add cloud task views to your urls.py (must resolve to the same url as ``task_handler_root_url``)
 
     .. code-block:: python
 
