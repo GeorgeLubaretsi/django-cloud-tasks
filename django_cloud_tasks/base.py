@@ -105,7 +105,7 @@ def batch_callback_logger(id, message, exception):
         raise Exception(decoded["error"]["message"])
 
 
-def batch_execute(tasks, retry_limit=10, retry_interval=3):
+def batch_execute(tasks, retry_limit=15, retry_interval=2):
     """
     Executes tasks in batch
     :param tasks: list of CloudTaskWrapper objects
@@ -248,7 +248,7 @@ class CloudTaskWrapper(object):
     def execute_local(self):
         return EmulatedTask(body=self.get_body()).execute()
 
-    def execute(self, retry_limit=10, retry_interval=5):
+    def execute(self, retry_limit=15, retry_interval=2):
         """
         Enqueue cloud task and send for execution
         :param retry_limit: How many times task scheduling will be attempted
