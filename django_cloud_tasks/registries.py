@@ -12,7 +12,7 @@ class CloudTaskRegistry(object):
 
     def register(self, base_task_class):
         self._registry[base_task_class.internal_task_name] = base_task_class
-        logger.info('Task {0} registered'.format(base_task_class.internal_task_name))
+        logger.debug('Task {0} registered'.format(base_task_class.internal_task_name))
 
     def get_task(self, name):
         return self._registry[name]

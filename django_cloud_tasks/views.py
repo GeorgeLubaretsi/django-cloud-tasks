@@ -37,10 +37,7 @@ def run_task(request):
         cloud_request = CloudTaskRequest.from_cloud_request(request)
         func.run(request=cloud_request, **data) if data else func.run(request=cloud_request)
     except Exception as e:
-        logger.exception(
-            e, extra=logger_extra
-        )
+        logger.warning(e)
         return JsonResponse({'status': 'error'}, status=500)
 
-    logger.info('Task executed successfully', extra=logger_extra)
     return JsonResponse({'status': 'ok', 'message': 'ok'}, status=200)
