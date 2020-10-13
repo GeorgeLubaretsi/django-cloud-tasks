@@ -32,6 +32,14 @@ class DCTConfig(AppConfig):
         return cls._settings().get('app_engine_routing', None)
 
     @classmethod
+    def http_request_domain(cls):
+        return cls._settings().get('http_request_domain', 'https://example.com')
+
+    @classmethod
+    def request_target(cls):
+        return cls._settings().get('request_target', 'app_engine')
+
+    @classmethod
     def execute_locally(cls):
         return getattr(settings, 'DJANGO_CLOUD_TASKS_EXECUTE_LOCALLY', False)
 

@@ -156,17 +156,18 @@ class CloudTaskMockRequest(object):
 
 
 class EmulatedTask(object):
-    def __init__(self, body):
+    def __init__(self, body, task_key):
         self.body = body
+        self.task_key = task_key
         self.setup()
 
     def setup(self):
-        payload = self.body['task']['appEngineHttpRequest']['body']
+        payload = self.body['task'][self.task_key]['body']
         decoded = json.loads(base64.b64decode(payload))
-        self.body['task']['appEngineHttpRequest']['body'] = decoded
+        self.body['task'][self.task_key]['body'] = decoded
 
     def get_json_body(self):
-        body = self.body['task']['appEngineHttpRequest']['body']
+        body = self.body['task'][self.task_key]['body']
         return json.dumps(body)
 
     @property
@@ -204,7 +205,7 @@ class CloudTaskRequest(object):
 
 class CloudTaskWrapper(object):
     def __init__(self, base_task, queue, data,
-                 internal_task_name=None, task_handler_url=None, app_engine_routing=None,
+                 internal_task_name=None, task_handler_url=None, app_engine_routing=None, request_target=None, http_request_domain=None,
                  is_remote=False, headers=None):
         self._base_task = base_task
         self._data = data
@@ -213,6 +214,9 @@ class CloudTaskWrapper(object):
         self._internal_task_name = internal_task_name or self._base_task.internal_task_name
         self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
         self._app_engine_routing = app_engine_routing or DCTConfig.app_engine_routing()
+        self._request_target = request_target or DCTConfig.request_target()
+        self._http_request_domain = http_request_domain or DCTConfig.http_request_domain()
+        self._task_key = "httpRequest" if self._request_target == "http" else "appEngineHttpRequest"
         self._handler_secret = DCTConfig.handler_secret()
         self._is_remote = is_remote
         self._headers = headers or {}
@@ -226,7 +230,7 @@ class CloudTaskWrapper(object):
             raise ValueError('Could not identify task handler URL of the worker service')
 
     def execute_local(self):
-        return EmulatedTask(body=self.get_body()).execute()
+        return EmulatedTask(body=self.get_body(), task_key=self._task_key).execute()
 
     def execute(self, retry_limit=10, retry_interval=5):
         """
@@ -276,16 +280,20 @@ class CloudTaskWrapper(object):
         return formatted
 
     def get_body(self):
+        url_key = "url" if self._request_target == "http" else "relativeUri"
+        url = self._http_request_domain + self._task_handler_url if self._request_target == "http" else self._task_handler_url
         body = {
             'task': {
-                'appEngineHttpRequest': {
+                self._task_key: {
                     'httpMethod': 'POST',
-                    'relativeUri': self._task_handler_url,
+                    url_key: url,
                     'headers': self.formatted_headers,
-                    'appEngineRouting': self._app_engine_routing
                 }
             }
         }
+        if self._app_engine_routing:
+            body['task'][self._task_key]["appEngineRouting"] = self._app_engine_routing
+
 
         payload = {
             'internal_task_name': self._internal_task_name,
@@ -298,7 +306,7 @@ class CloudTaskWrapper(object):
         base64_encoded_payload = base64.b64encode(payload.encode())
         converted_payload = base64_encoded_payload.decode()
 
-        body['task']['appEngineHttpRequest']['body'] = converted_payload
+        body['task'][self._task_key]['body'] = converted_payload
         return body
 
     def create_cloud_task(self):
