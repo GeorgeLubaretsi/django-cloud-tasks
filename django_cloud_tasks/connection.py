@@ -17,7 +17,10 @@ class cached_property(object):
 class GoogleCloudClient(object):
     @cached_property
     def client(self):
-        client = googleapiclient.discovery.build('cloudtasks', 'v2beta3')
+        # Warning:
+        # WARNING:googleapiclient.discovery_cache:file_cache is unavailable when using oauth2client >= 4.0.0 or google-auth
+        # Not caching discovery will suppress the warning.
+        client = googleapiclient.discovery.build('cloudtasks', 'v2beta3', cache_discovery=False)
         return client
 
     @cached_property

@@ -13,7 +13,12 @@ logger = logging.getLogger(__name__)
 
 @csrf_exempt
 def run_task(request):
-    body = json.loads(request.body.decode('utf-8'))
+    if request.method == 'POST':
+        if not request.body:
+            raise ValueError("Missing request body!")
+        body = json.loads(request.body.decode('utf-8'))
+    else:
+        raise ValueError("Nothing here!")
     request_headers = request.META
     task_name = request_headers.get('HTTP_X_APPENGINE_TASKNAME')
     task_queue_name = request_headers.get('HTTP_X_APPENGINE_QUEUENAME')
@@ -28,8 +33,11 @@ def run_task(request):
         'taskRequestHeaders': dict(request_headers)
     }
     try:
-        if not handler_key == DCTConfig.handler_secret():
-            raise ValueError('API key mismatch')
+        if DCTConfig.handler_secret():
+            if not handler_key:
+                raise ValueError("API key mismatch")
+            if not handler_key == DCTConfig.handler_secret():
+                raise ValueError("API key mismatch")
 
         internal_task_name = body['internal_task_name']
         data = body.get('data', dict())

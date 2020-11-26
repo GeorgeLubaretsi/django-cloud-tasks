@@ -38,3 +38,11 @@ class DCTConfig(AppConfig):
     @classmethod
     def handler_secret(cls):
         return getattr(settings, 'DJANGO_CLOUD_TASKS_HANDLER_SECRET', None)
+
+    @classmethod
+    def region(cls):
+        return getattr(settings, 'DJANGO_CLOUD_TASKS_REGION', None)
+
+    @classmethod
+    def http_service_account(cls):
+        return cls._settings().get('http_service_account')

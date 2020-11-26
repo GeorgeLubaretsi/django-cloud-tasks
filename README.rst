@@ -64,6 +64,9 @@ Installation
         # the queue. Useful for debugging. Default: True
         DJANGO_CLOUD_TASKS_BLOCK_REMOTE_TASKS = False
 
+        # Make sure every payload has a pre-share key in it to confirm request originates from us.
+        DJANGO_CLOUD_TASKS_HANDLER_SECRET = '-really-secret-password-'
+
 
 (4) Add cloud task views to your urls.py (must resolve to the same url as ``task_handler_root_url``)
 
