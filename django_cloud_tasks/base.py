@@ -41,6 +41,10 @@ def _duration_iso_string(duration):
     return '{}P{}DT{:02d}H{:02d}M{:02d}{}S'.format(sign, days, hours, minutes, seconds, ms)
 
 
+class CloudTaskException(Exception):
+    pass
+
+
 class ComplexEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
@@ -100,7 +104,7 @@ def batch_callback_logger(id, message, exception):
     if exception:
         resp, _bytes = exception.args
         decoded = json.loads(_bytes.decode('utf-8'))
-        raise Exception(decoded['error']['message'])
+        raise CloudTaskException(decoded['error']['message'])
 
 
 def batch_execute(tasks, retry_limit=10, retry_interval=3):
@@ -111,23 +115,24 @@ def batch_execute(tasks, retry_limit=10, retry_interval=3):
     :param retry_interval: Interval between task scheduling attempts in seconds
     """
     if len(tasks) >= 1000:
-        raise Exception('Maximum number of tasks in batch cannot exceed 1000')
+        raise CloudTaskException('Maximum number of tasks in batch cannot exceed 1000')
 
     if DCTConfig.execute_locally():
         for t in tasks:
-            if not t._is_remote:
-                t.execute_local()
-            elif t._is_remote and DCTConfig.block_remote_tasks():
+            if t._is_remote and DCTConfig.block_remote_tasks():
                 logger.debug(
                     'Remote task {0} was ignored. Task data:\n {1}'.format(t._internal_task_name, t._data)
                 )
+            else:
+                t.execute_local()
+
         return
 
     client = connection.client
     batch = client.new_batch_http_request()
 
     # Override deprecated default batch URL
-    batch._batch_uri = 'https://cloudtasks.googleapis.com/batch/v2alpha2/locations/us-central1'
+    batch._batch_uri = 'https://cloudtasks.googleapis.com/batch/v2alpha2/locations/%s' % DCTConfig.region()
     for t in tasks:
         batch.add(t.create_cloud_task(), callback=batch_callback_logger)
 
@@ -156,8 +161,9 @@ class CloudTaskMockRequest(object):
 
 
 class EmulatedTask(object):
-    def __init__(self, body):
+    def __init__(self, body, task_handler_url=None):
         self.body = body
+        self._task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
         self.setup()
 
     def setup(self):
@@ -179,7 +185,7 @@ class EmulatedTask(object):
 
     def execute(self):
         from .views import run_task
-        request = RequestFactory().post('/_tasks/', data=self.get_json_body(),
+        request = RequestFactory().post(self._task_handler_url, data=self.get_json_body(),
                                         content_type='application/json',
                                         **self.request_headers)
         return run_task(request=request)
@@ -205,7 +211,8 @@ class CloudTaskRequest(object):
 class CloudTaskWrapper(object):
     def __init__(self, base_task, queue, data,
                  internal_task_name=None, task_handler_url=None,
-                 is_remote=False, headers=None):
+                 is_remote=False, headers=None,
+                 http_service_account=None):
         self._base_task = base_task
         self._data = data
         self._queue = queue
@@ -215,6 +222,15 @@ class CloudTaskWrapper(object):
         self._handler_secret = DCTConfig.handler_secret()
         self._is_remote = is_remote
         self._headers = headers or {}
+        if http_service_account is None:
+            # Running AppEngineTask. Not running HTTP-task
+            self._http_service_account = http_service_account
+        elif type(http_service_account) == bool and http_service_account:
+            # Running HTTP-task with default service account
+            self._http_service_account = DCTConfig.http_service_account()
+        else:
+            # Running HTTP-task with specified service account.
+            self._http_service_account = http_service_account
         self.setup()
 
     def setup(self):
@@ -225,7 +241,11 @@ class CloudTaskWrapper(object):
             raise ValueError('Could not identify task handler URL of the worker service')
 
     def execute_local(self):
-        return EmulatedTask(body=self.get_body()).execute()
+        if self._http_service_account:
+            body = self.get_http_body()
+        else:
+            body = self.get_appengine_body()
+        return EmulatedTask(body=body, task_handler_url=self._task_handler_url).execute()
 
     def execute(self, retry_limit=10, retry_interval=5):
         """
@@ -233,7 +253,7 @@ class CloudTaskWrapper(object):
         :param retry_limit: How many times task scheduling will be attempted
         :param retry_interval: Interval between task scheduling attempts in seconds
         """
-        if DCTConfig.execute_locally() and not self._is_remote:
+        if DCTConfig.execute_locally():
             return self.execute_local()
 
         if self._is_remote and DCTConfig.block_remote_tasks():
@@ -274,7 +294,7 @@ class CloudTaskWrapper(object):
         formatted[HANDLER_SECRET_HEADER_NAME] = self._handler_secret
         return formatted
 
-    def get_body(self):
+    def get_appengine_body(self):
         body = {
             'task': {
                 'appEngineHttpRequest': {
@@ -299,16 +319,51 @@ class CloudTaskWrapper(object):
         body['task']['appEngineHttpRequest']['body'] = converted_payload
         return body
 
+    def get_http_body(self):
+        body = {
+            'task': {
+                'httpRequest': {
+                    'httpMethod': 'POST',
+                    'url': self._task_handler_url,
+                    'headers': self.formatted_headers,
+                    'oidcToken': {
+                        "service_account_email": self._http_service_account
+                    },
+                }
+            }
+        }
+
+        payload = {
+            'internal_task_name': self._internal_task_name,
+            'data': self._data
+        }
+        payload = json.dumps(payload, cls=ComplexEncoder)
+        logger.debug(
+            'Creating task with body {0}'.format(payload),
+             extra={'taskBody': payload}
+        )
+        base64_encoded_payload = base64.b64encode(payload.encode())
+        converted_payload = base64_encoded_payload.decode()
+
+        body['task']['httpRequest']['body'] = converted_payload
+        return body
+
     def create_cloud_task(self):
-        task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=self.get_body())
+        if self._http_service_account:
+            body = self.get_http_body()
+        else:
+            body = self.get_appengine_body()
+        task = self._connection.tasks_endpoint.create(parent=self._cloud_task_queue_name, body=body)
         return task
 
 class RemoteCloudTask(object):
-    def __init__(self, queue, handler, task_handler_url=None, headers=None):
+    def __init__(self, queue, handler, task_handler_url=None, headers=None,
+                 http_service_account=None):
         self.queue = queue
         self.handler = handler
         self.task_handler_url = task_handler_url or DCTConfig.task_handler_root_url()
         self.headers = headers
+        self.http_service_account = http_service_account
 
     def payload(self, payload):
         """
@@ -318,21 +373,26 @@ class RemoteCloudTask(object):
         """
         task = CloudTaskWrapper(base_task=None, queue=self.queue, internal_task_name=self.handler,
                                 task_handler_url=self.task_handler_url,
-                                data=payload, is_remote=True, headers=self.headers)
+                                data=payload, is_remote=True, headers=self.headers,
+                                http_service_account=self.http_service_account)
         return task
 
     def __call__(self, *args, **kwargs):
         return self.payload(payload=kwargs)
 
 
-def remote_task(queue, handler, task_handler_url=None, **headers):
+def remote_task(queue, handler, task_handler_url=None, http_service_account=None, **headers):
     """
     Returns `RemoteCloudTask` instance. Can be used for scheduling tasks that are not available in the current scope
     :param queue: Queue name
     :param handler: Task handler function name
     :param task_handler_url: Entry point URL of the worker service for the task
+    :param http_service_account: If specified, will run a HTTP task with given service account.
+                                 If not specified, will run AppEngineTask.
     :param headers: Headers that will be sent to the task handler
     :return: `CloudTaskWrapper` instance
     """
-    task = RemoteCloudTask(queue=queue, handler=handler, task_handler_url=task_handler_url, headers=headers)
+    task = RemoteCloudTask(queue=queue, handler=handler,
+                           task_handler_url=task_handler_url, http_service_account=http_service_account,
+                           headers=headers)
     return task
