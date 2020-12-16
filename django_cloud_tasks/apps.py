@@ -24,6 +24,10 @@ class DCTConfig(AppConfig):
         return cls._settings().get('project_location_name')
 
     @classmethod
+    def location_name(cls):
+        return cls._settings().get('location_name', 'us-central1')
+
+    @classmethod
     def task_handler_root_url(cls):
         return cls._settings().get('task_handler_root_url')
     

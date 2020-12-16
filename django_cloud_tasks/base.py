@@ -127,7 +127,7 @@ def batch_execute(tasks, retry_limit=10, retry_interval=3):
     batch = client.new_batch_http_request()
 
     # # Override deprecated default batch URL
-    # batch._batch_uri = 'https://cloudtasks.googleapis.com/batch/v2alpha2/locations/us-central1'
+    batch._batch_uri = 'https://cloudtasks.googleapis.com/batch/v2alpha2/locations/%s' % DCTConfig.location_name()
     for t in tasks:
         batch.add(t.create_cloud_task(), callback=batch_callback_logger)
 
