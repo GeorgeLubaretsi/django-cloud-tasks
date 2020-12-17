@@ -24,8 +24,24 @@ class DCTConfig(AppConfig):
         return cls._settings().get('project_location_name')
 
     @classmethod
+    def location_name(cls):
+        return cls._settings().get('location_name', 'us-central1')
+
+    @classmethod
     def task_handler_root_url(cls):
         return cls._settings().get('task_handler_root_url')
+    
+    @classmethod
+    def app_engine_routing(cls):
+        return cls._settings().get('app_engine_routing', None)
+
+    @classmethod
+    def http_request_domain(cls):
+        return cls._settings().get('http_request_domain', 'https://example.com')
+
+    @classmethod
+    def request_target(cls):
+        return cls._settings().get('request_target', 'app_engine')
 
     @classmethod
     def execute_locally(cls):
